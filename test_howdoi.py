@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for Howdoi."""
+import asyncio
 import os
 import unittest
 import re
@@ -11,10 +12,10 @@ from howdoi import howdoi
 
 class HowdoiTestCase(unittest.TestCase):
 
-    def call_howdoi(self, query):
+    async def call_howdoi(self, query):
         parser = howdoi.get_parser()
         args = vars(parser.parse_args(query.split(' ')))
-        return howdoi.howdoi(args)
+        return await howdoi.howdoi(args)
 
     def setUp(self):
         self.queries = ['format date bash',
@@ -27,6 +28,8 @@ class HowdoiTestCase(unittest.TestCase):
                            'hello world em c']
         self.bad_queries = ['moe',
                             'mel']
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(None)
 
     def tearDown(self):
         pass
@@ -45,66 +48,66 @@ class HowdoiTestCase(unittest.TestCase):
 
     def test_answers(self):
         for query in self.queries:
-            self.assertTrue(self.call_howdoi(query))
+            self.assertTrue(self.loop.run_until_complete(self.call_howdoi(query)))
         for query in self.bad_queries:
-            self.assertTrue(self.call_howdoi(query))
+            self.assertTrue(self.loop.run_until_complete(self.call_howdoi(query)))
 
         os.environ['HOWDOI_URL'] = 'pt.stackoverflow.com'
         for query in self.pt_queries:
-            self.assertTrue(self.call_howdoi(query))
+            self.assertTrue(self.loop.run_until_complete(self.call_howdoi(query)))
 
     def test_answers_bing(self):
         os.environ['HOWDOI_SEARCH_ENGINE'] = 'bing'
         for query in self.queries:
-            self.assertTrue(self.call_howdoi(query))
+            self.assertTrue(self.loop.run_until_complete(self.call_howdoi(query)))
         for query in self.bad_queries:
-            self.assertTrue(self.call_howdoi(query))
+            self.assertTrue(self.loop.run_until_complete(self.call_howdoi(query)))
 
         os.environ['HOWDOI_URL'] = 'pt.stackoverflow.com'
         for query in self.pt_queries:
-            self.assertTrue(self.call_howdoi(query))
+            self.assertTrue(self.loop.run_until_complete(self.call_howdoi(query)))
 
         os.environ['HOWDOI_SEARCH_ENGINE'] = ''
 
     def test_answer_links_using_l_option(self):
         for query in self.queries:
-            response = self.call_howdoi(query + ' -l')
+            response = self.loop.run_until_complete(self.call_howdoi(query + ' -l'))
             self.assertNotEqual(re.match('http.?://.*questions/\d.*', response, re.DOTALL), None)
 
     def test_answer_links_using_all_option(self):
         for query in self.queries:
-            response = self.call_howdoi(query + ' -a')
+            response = self.loop.run_until_complete(self.call_howdoi(query + ' -a'))
             self.assertNotEqual(re.match('.*http.?://.*questions/\d.*', response, re.DOTALL), None)
 
     def test_position(self):
         query = self.queries[0]
-        first_answer = self.call_howdoi(query)
-        second_answer = self.call_howdoi(query + ' -p2')
+        first_answer = self.loop.run_until_complete(self.call_howdoi(query))
+        second_answer = self.loop.run_until_complete(self.call_howdoi(query + ' -p2'))
         self.assertNotEqual(first_answer, second_answer)
 
     def test_all_text(self):
         query = self.queries[0]
-        first_answer = self.call_howdoi(query)
-        second_answer = self.call_howdoi(query + ' -a')
+        first_answer = self.loop.run_until_complete(self.call_howdoi(query))
+        second_answer = self.loop.run_until_complete(self.call_howdoi(query + ' -a'))
         self.assertNotEqual(first_answer, second_answer)
         self.assertNotEqual(re.match('.*Answer from http.?://.*', second_answer, re.DOTALL), None)
 
     def test_multiple_answers(self):
         query = self.queries[0]
-        first_answer = self.call_howdoi(query)
-        second_answer = self.call_howdoi(query + ' -n3')
+        first_answer = self.loop.run_until_complete(self.call_howdoi(query))
+        second_answer = self.loop.run_until_complete(self.call_howdoi(query + ' -n3'))
         self.assertNotEqual(first_answer, second_answer)
 
     def test_unicode_answer(self):
-        assert self.call_howdoi('make a log scale d3')
-        assert self.call_howdoi('python unittest -n3')
-        assert self.call_howdoi('parse html regex -a')
-        assert self.call_howdoi('delete remote git branch -a')
+        assert self.loop.run_until_complete(self.call_howdoi('make a log scale d3'))
+        assert self.loop.run_until_complete(self.call_howdoi('python unittest -n3'))
+        assert self.loop.run_until_complete(self.call_howdoi('parse html regex -a'))
+        assert self.loop.run_until_complete(self.call_howdoi('delete remote git branch -a'))
 
     def test_colorize(self):
         query = self.queries[0]
-        normal = self.call_howdoi(query)
-        colorized = self.call_howdoi('-c ' + query)
+        normal = self.loop.run_until_complete(self.call_howdoi(query))
+        colorized = self.loop.run_until_complete(self.call_howdoi('-c ' + query))
         self.assertTrue(normal.find('[39;') is -1)
         self.assertTrue(colorized.find('[39;') is not -1)
 
