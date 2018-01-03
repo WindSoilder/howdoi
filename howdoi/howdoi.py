@@ -9,6 +9,8 @@
 ######################################################
 
 import argparse
+import aiohttp
+import asyncio
 import glob
 import os
 import random
@@ -16,7 +18,7 @@ import re
 import requests
 import requests_cache
 import sys
-from . import __version__
+# from . import __version__
 
 from pygments import highlight
 from pygments.lexers import guess_lexer, get_lexer_by_name
@@ -86,14 +88,16 @@ def get_proxies():
     return filtered_proxies
 
 
-def _get_result(url):
-    try:
-        return requests.get(url, headers={'User-Agent': random.choice(USER_AGENTS)}, proxies=get_proxies(),
-                            verify=VERIFY_SSL_CERTIFICATE).text
-    except requests.exceptions.SSLError as e:
-        print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
-              'HTTPS by setting the environment variable "HOWDOI_DISABLE_SSL".\n')
-        raise e
+async def _get_result(url):
+    # try:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers={'User-Agent': random.choice(USER_AGENTS)},
+                               verify_ssl=VERIFY_SSL_CERTIFICATE) as response:
+            return await response.text()
+    # except requests.exceptions.SSLError as e:
+    #     print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
+    #           'HTTPS by setting the environment variable "HOWDOI_DISABLE_SSL".\n')
+    #     raise e
 
 
 def _extract_links_from_bing(html):
@@ -116,11 +120,11 @@ def _get_search_url(search_engine):
     return SEARCH_URLS.get(search_engine, SEARCH_URLS['google'])
 
 
-def _get_links(query):
+async def _get_links(query):
     search_engine = os.getenv('HOWDOI_SEARCH_ENGINE', 'google')
     search_url = _get_search_url(search_engine)
 
-    result = _get_result(search_url.format(URL, url_quote(query)))
+    result = await _get_result(search_url.format(URL, url_quote(query)))
     html = pq(result)
     return _extract_links(html, search_engine)
 
@@ -170,13 +174,13 @@ def _get_questions(links):
     return [link for link in links if _is_question(link)]
 
 
-def _get_answer(args, links):
+async def _get_answer(args, links):
     link = get_link_at_pos(links, args['pos'])
     if not link:
         return False
     if args.get('link'):
         return link
-    page = _get_result(link + '?answertab=votes')
+    page = await _get_result(link + '?answertab=votes')
     html = pq(page)
 
     first_answer = html('.answer').eq(0)
@@ -203,8 +207,8 @@ def _get_answer(args, links):
     return text
 
 
-def _get_instructions(args):
-    links = _get_links(args['query'])
+async def _get_instructions(args):
+    links = await _get_links(args['query'])
     if not links:
         return False
 
@@ -221,7 +225,7 @@ def _get_instructions(args):
         current_position = answer_number + initial_position
         args['pos'] = current_position
         link = get_link_at_pos(question_links, current_position)
-        answer = _get_answer(args, question_links)
+        answer = await _get_answer(args, question_links)
         if not answer:
             continue
         if not only_hyperlinks:
@@ -248,10 +252,10 @@ def _clear_cache():
         os.remove(cache)
 
 
-def howdoi(args):
+async def howdoi(args):
     args['query'] = ' '.join(args['query']).replace('?', '')
     try:
-        return _get_instructions(args) or 'Sorry, couldn\'t find any help with that topic\n'
+        return await _get_instructions(args) or 'Sorry, couldn\'t find any help with that topic\n'
     except (ConnectionError, SSLError):
         return 'Failed to establish network connection\n'
 
@@ -275,7 +279,7 @@ def get_parser():
     return parser
 
 
-def command_line_runner():
+async def command_line_runner():
     parser = get_parser()
     args = vars(parser.parse_args())
 
@@ -299,7 +303,8 @@ def command_line_runner():
     if os.getenv('HOWDOI_COLORIZE'):
         args['color'] = True
 
-    utf8_result = howdoi(args).encode('utf-8', 'ignore')
+    utf8_result = await howdoi(args)
+    utf8_result = utf8_result.encode('utf-8', 'ignore')
     if sys.version < '3':
         print(utf8_result)
     else:
@@ -308,4 +313,5 @@ def command_line_runner():
 
 
 if __name__ == '__main__':
-    command_line_runner()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(command_line_runner())
