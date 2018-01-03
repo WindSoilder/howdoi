@@ -88,15 +88,16 @@ def get_proxies():
 
 
 async def _get_result(url):
-    # try:
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers={'User-Agent': random.choice(USER_AGENTS)},
-                               verify_ssl=VERIFY_SSL_CERTIFICATE) as response:
-            return await response.text()
-    # except requests.exceptions.SSLError as e:
-    #     print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
-    #           'HTTPS by setting the environment variable "HOWDOI_DISABLE_SSL".\n')
-    #     raise e
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers={'User-Agent': random.choice(USER_AGENTS)},
+                                   verify_ssl=VERIFY_SSL_CERTIFICATE,
+                                   proxies=get_proxies()) as response:
+                return await response.text()
+    except aiohttp.ClientSSLError as e:
+        print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
+              'HTTPS by setting the environment variable "HOWDOI_DISABLE_SSL".\n')
+        raise e
 
 
 def _extract_links_from_bing(html):
