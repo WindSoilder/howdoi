@@ -15,7 +15,6 @@ import glob
 import os
 import random
 import re
-import requests
 import requests_cache
 import sys
 from . import __version__
