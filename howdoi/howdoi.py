@@ -91,8 +91,7 @@ async def _get_result(url):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers={'User-Agent': random.choice(USER_AGENTS)},
-                                   verify_ssl=VERIFY_SSL_CERTIFICATE,
-                                   proxies=get_proxies()) as response:
+                                   verify_ssl=VERIFY_SSL_CERTIFICATE) as response:
                 return await response.text()
     except aiohttp.ClientSSLError as e:
         print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
