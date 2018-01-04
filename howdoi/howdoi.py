@@ -88,10 +88,21 @@ def get_proxies():
 
 
 async def _get_result(url):
+    get_kwargs = {
+        'headers': {
+            'User-Agent': random.choice(USER_AGENTS)
+        },
+        'verify_ssl': VERIFY_SSL_CERTIFICATE
+    }
+
+    proxies = get_proxies()
+    # aiohttp only support http proxy
+    if 'http' in proxies:
+        get_kwargs['proxy'] = proxies['http']
+
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers={'User-Agent': random.choice(USER_AGENTS)},
-                                   verify_ssl=VERIFY_SSL_CERTIFICATE) as response:
+            async with session.get(url, **get_kwargs) as response:
                 return await response.text()
     except aiohttp.ClientSSLError as e:
         print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
